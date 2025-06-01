@@ -60,6 +60,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y musl-tools musl-dev
         if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+          # Use cross-compilation with existing tools and static linking
           sudo apt-get install -y gcc-aarch64-linux-gnu
         fi
 
@@ -80,11 +81,29 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
 
-    - name: Set cross-compilation environment (ARM64 musl)
-      if: matrix.target == 'aarch64-unknown-linux-musl'
+    - name: Set cross-compilation environment (musl targets)
+      if: contains(matrix.target, 'musl')
       run: |
-        echo "CC_aarch64_unknown_linux_musl=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-        echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+        # SQLite configuration for musl compatibility (keep threading for Rust compatibility)
+        SQLITE_FLAGS="-DSQLITE_DISABLE_INTRINSIC=1 -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DISABLE_LFS=1 -DSQLITE_OMIT_WAL=1 -D_FORTIFY_SOURCE=0"
+        echo "SQLITE_DISABLE_INTRINSIC=1" >> $GITHUB_ENV
+        echo "SQLITE_OMIT_LOAD_EXTENSION=1" >> $GITHUB_ENV
+        echo "SQLITE_DISABLE_LFS=1" >> $GITHUB_ENV
+        echo "SQLITE_OMIT_WAL=1" >> $GITHUB_ENV
+        echo "LIBSQLITE3_FLAGS=$SQLITE_FLAGS" >> $GITHUB_ENV
+
+        if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
+          echo "CC_aarch64_unknown_linux_musl=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_musl=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS=-C target-feature=+crt-static -C link-self-contained=yes" >> $GITHUB_ENV
+          echo "CFLAGS_aarch64_unknown_linux_musl=$SQLITE_FLAGS" >> $GITHUB_ENV
+          echo "CPPFLAGS_aarch64_unknown_linux_musl=$SQLITE_FLAGS" >> $GITHUB_ENV
+        elif [[ "${{ matrix.target }}" == "x86_64-unknown-linux-musl" ]]; then
+          echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS=-C target-feature=+crt-static -C link-self-contained=yes" >> $GITHUB_ENV
+          echo "CFLAGS_x86_64_unknown_linux_musl=$SQLITE_FLAGS" >> $GITHUB_ENV
+          echo "CPPFLAGS_x86_64_unknown_linux_musl=$SQLITE_FLAGS" >> $GITHUB_ENV
+        fi
 
     - name: Build release binary
       run: cargo +nightly build --release --target ${{ matrix.target }} -Z build-std=std,panic_abort -Z build-std-features="optimize_for_size" -Z build-std-features=panic_immediate_abort
