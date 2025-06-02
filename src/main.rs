@@ -1,16 +1,49 @@
 use base64::{Engine as _, engine::general_purpose};
 use rusqlite::Connection;
 use serde_json::{Map, Value};
+use std::env;
 use std::fs::{self};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use uuid::Uuid;
 use sha2::{Sha256, Digest};
+use crate::startup::{setup_persistent_daemon, uninstall_daemon};
+
+mod daemon;
+mod startup;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn main() {
-    if let Err(e) = run() {
+#[tokio::main]
+async fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    // Check command line arguments
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "--daemon" => {
+                if let Err(e) = run_daemon().await {
+                    eprintln!("Daemon error: {}", e);
+                    std::process::exit(1);
+                }
+                return;
+            }
+            "--uninstall" => {
+                if let Err(e) = uninstall_daemon() {
+                    eprintln!("Uninstall error: {}", e);
+                    std::process::exit(1);
+                } else {
+                    println!("✅ Augment VIP daemon uninstalled successfully!");
+                    std::process::exit(0);
+                }
+            }
+
+            _ => {}
+        }
+    }
+
+    // Normal execution
+    if let Err(e) = run().await {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }
@@ -24,7 +57,7 @@ fn get_jetbrains_config_dir() -> Option<PathBuf> {
         .find(|path| path.exists())
 }
 
-fn get_vscode_config_dirs() -> Option<Vec<PathBuf>> {
+pub fn get_vscode_config_dirs() -> Option<Vec<PathBuf>> {
     let base_dirs = [dirs::config_dir(), dirs::home_dir(), dirs::data_dir()];
     let path_patterns = [
         &["User", "globalStorage"] as &[&str],
@@ -120,7 +153,20 @@ fn update_vscode_storage(vscode_global_storage_path: &Path, vscode_keys: &[&str;
     Ok(())
 }
 
-fn run() -> Result<()> {
+async fn run_daemon() -> Result<()> {
+    let mut daemon_manager = daemon::DaemonManager::new();
+    daemon_manager.discover_storage_files()?;
+    daemon_manager.capture_original_values()?;
+    daemon_manager.start_daemon().await
+}
+
+pub const VSCODE_KEYS: [&str; 3] = [ // used by daemon.rs
+    "dGVsZW1ldHJ5Lm1hY2hpbmVJZA==",
+    "dGVsZW1ldHJ5LmRldkRldmljZUlk",
+    "dGVsZW1ldHJ5Lm1hY01hY2hpbmVJZA=="
+];
+
+async fn run() -> Result<()> {
     let mut programs_found = false;
 
     // Try to find and update JetBrains
@@ -144,12 +190,11 @@ fn run() -> Result<()> {
     if let Some(vscode_dirs) = get_vscode_config_dirs() {
         programs_found = true;
 
-        let vscode_keys = ["dGVsZW1ldHJ5Lm1hY2hpbmVJZA==", "dGVsZW1ldHJ5LmRldkRldmljZUlk", "dGVsZW1ldHJ5Lm1hY01hY2hpbmVJZA=="];
         let count_query = String::from_utf8(general_purpose::STANDARD.decode("U0VMRUNUIENPVU5UKCopIEZST00gSXRlbVRhYmxlIFdIRVJFIGtleSBMSUtFICclYXVnbWVudCUnOw==")?)?;
         let delete_query = String::from_utf8(general_purpose::STANDARD.decode("REVMRVRFIEZST00gSXRlbVRhYmxlIFdIRVJFIGtleSBMSUtFICclYXVnbWVudCUnOw==")?)?;
 
         for vscode_dir in vscode_dirs {
-            update_vscode_storage(&vscode_dir, &vscode_keys)?;
+            update_vscode_storage(&vscode_dir, &VSCODE_KEYS)?;
             clean_database(&vscode_dir, &count_query, &delete_query)?;
         }
 
@@ -162,7 +207,24 @@ fn run() -> Result<()> {
     if !programs_found {
         return Err("No JetBrains or VSCode installations found".into());
     }
-    
+
+    // Step 3: Automatically setup daemon for persistent monitoring
+    println!("\n=== DAEMON SETUP ===");
+    println!("Setting up persistent monitoring...");
+
+    match setup_persistent_daemon() {
+        Ok(()) => {
+            println!("✅ Daemon setup completed successfully!");
+            println!("The daemon is now running and will start automatically when you log in.");
+        }
+        Err(e) => {
+            println!("⚠️  Failed to setup daemon: {}", e);
+        }
+    }
+
+    println!("\nTo uninstall the daemon:");
+    println!("  {} --uninstall", env::current_exe()?.display());
+
     Ok(())
 }
 
