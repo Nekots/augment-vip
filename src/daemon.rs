@@ -25,8 +25,6 @@ impl DaemonManager {
         }
     }
 
-
-
     pub fn discover_storage_files(&mut self) -> Result<()> {
         if let Some(vscode_dirs) = crate::get_vscode_config_dirs() {
             for vscode_dir in vscode_dirs {
@@ -54,7 +52,6 @@ impl DaemonManager {
     }
 
     pub async fn start_daemon(self) -> Result<()> {
-
         // Set up file watcher
         let (tx, rx) = mpsc::channel();
         let mut watcher = RecommendedWatcher::new(
@@ -97,7 +94,6 @@ impl DaemonManager {
     }
 
     async fn handle_storage_change(&self, storage_path: &Path) -> Result<()> {
-
         // Small delay to ensure file write is complete
         sleep(Duration::from_millis(50)).await;
 
