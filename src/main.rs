@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use uuid::Uuid;
 use sha2::{Sha256, Digest};
+use default_args::default_args;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -26,11 +27,15 @@ fn get_jetbrains_config_dir() -> Option<PathBuf> {
 
 fn get_vscode_files(id: &str) -> Option<Vec<PathBuf>> {
     let base_dirs = [dirs::config_dir(), dirs::home_dir(), dirs::data_dir()];
-    let path_patterns = [
+    let global_patterns = [
         &["User", "globalStorage"] as &[&str],
         &["data", "User", "globalStorage"],
         &[id],
         &["data", id],
+    ];
+    let workspace_patterns = [
+        &["User", "workspaceStorage"] as &[&str],
+        &["data", "User", "workspaceStorage"],
     ];
 
     let vscode_dirs: Vec<PathBuf> = base_dirs
@@ -42,9 +47,29 @@ fn get_vscode_files(id: &str) -> Option<Vec<PathBuf>> {
                 .flat_map(|entries| entries.filter_map(|entry| entry.ok()))
                 .filter(|entry| entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
                 .flat_map(|entry| {
-                    path_patterns.iter().map(move |pattern| {
-                        pattern.iter().fold(entry.path(), |path, segment| path.join(segment))
-                    })
+                    let entry_path = entry.path();
+
+                    // Global storage patterns
+                    let global_paths: Vec<PathBuf> = global_patterns.iter().map(|pattern| {
+                        pattern.iter().fold(entry_path.clone(), |path, segment| path.join(segment))
+                    }).collect();
+
+                    // Workspace storage patterns - enumerate all subdirectories
+                    let workspace_paths: Vec<PathBuf> = workspace_patterns.iter().flat_map(|pattern| {
+                        let workspace_base = pattern.iter().fold(entry_path.clone(), |path, segment| path.join(segment));
+                        if workspace_base.exists() {
+                            fs::read_dir(&workspace_base)
+                                .into_iter()
+                                .flat_map(|entries| entries.filter_map(|entry| entry.ok()))
+                                .filter(|entry| entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
+                                .map(|entry| entry.path())
+                                .collect::<Vec<_>>()
+                        } else {
+                            Vec::new()
+                        }
+                    }).collect();
+
+                    global_paths.into_iter().chain(workspace_paths)
                 })
         })
         .filter(|path| path.exists())
@@ -126,6 +151,34 @@ fn update_vscode_files(vscode_file_path: &Path, vscode_keys: &[&str; 3]) -> Resu
     Ok(()) // continue
 }
 
+default_args! {
+    fn clean_vscode_database(vscode_global_storage_path: &Path, count_query: &String, delete_query: &String, file_name: &String = &"state.vscdb".to_string()) -> Result<()> {
+        let state_db_path = vscode_global_storage_path.join(file_name);
+    
+        if !state_db_path.exists() {
+            return Ok(());
+        }
+    
+        let conn = Connection::open(&state_db_path)?;
+    
+        // Check how many rows would be deleted first
+        let rows_to_delete: i64 = conn.prepare(count_query)?.query_row([], |row| row.get(0))?;
+        if rows_to_delete > 0 {
+            println!("Found {} potential entries to remove from '{}'", rows_to_delete, state_db_path.file_name().unwrap_or_default().to_string_lossy());
+    
+            // Execute the delete query
+            conn.execute(delete_query, [])?;
+    
+            println!("Successfully removed {} entries from '{}'", rows_to_delete, state_db_path.file_name().unwrap_or_default().to_string_lossy());
+        }
+    
+        if file_name.ends_with(".backup") {
+            return Ok(());
+        }
+        clean_vscode_database_(vscode_global_storage_path, count_query, delete_query, &(file_name.to_string() + ".backup"))
+    }
+}
+
 fn run() -> Result<()> {
     let mut programs_found = false;
 
@@ -156,7 +209,7 @@ fn run() -> Result<()> {
 
         for vscode_dir in vscode_dirs {
             update_vscode_files(&vscode_dir, &vscode_keys)?;
-            clean_database(&vscode_dir, &count_query, &delete_query)?;
+            clean_vscode_database!(&vscode_dir, &count_query, &delete_query)?;
         }
 
         println!("All found VSCode variants' ID files have been updated and databases cleaned successfully!");
@@ -204,37 +257,5 @@ fn lock_file(file_path: &Path) -> Result<()> {
     fs::set_permissions(file_path, perms)?;
 
     println!("Successfully locked file");
-    Ok(())
-}
-
-fn clean_database(vscode_global_storage_path: &Path, count_query: &String, delete_query: &String) -> Result<()> {
-    let state_db_path = vscode_global_storage_path.join("state.vscdb");
-
-    if !state_db_path.exists() {
-        if state_db_path.parent().map_or(false, |p| p.is_dir()) {
-            println!("State database not found: {}", state_db_path.display());
-        }
-        return Ok(());
-    }
-
-    println!("Cleaning state database: {}", state_db_path.display());
-
-    let conn = Connection::open(&state_db_path)?;
-
-    // Check how many rows would be deleted first
-    let mut stmt = conn.prepare(count_query)?;
-    let rows_to_delete: i64 = stmt.query_row([], |row| row.get(0))?;
-
-    if rows_to_delete > 0 {
-        println!("Found {} potential entries to remove from '{}'", rows_to_delete, state_db_path.file_name().unwrap_or_default().to_string_lossy());
-
-        // Execute the delete query
-        conn.execute(delete_query, [])?;
-
-        println!("Successfully removed {} entries from '{}'", rows_to_delete, state_db_path.file_name().unwrap_or_default().to_string_lossy());
-    } else {
-        println!("No entries found to remove from '{}'", state_db_path.file_name().unwrap_or_default().to_string_lossy());
-    }
-
     Ok(())
 }
