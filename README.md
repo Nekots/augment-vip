@@ -1,10 +1,13 @@
-First sign out from the IDE (and the website)\
-Then run the binary from the [releases](https://github.com/Ran-Mewo/augment-vip/releases) page\
-After that you should create a new account and log onto that new account 😊
-
-首先从IDE（以及网站）退出登录,并且关闭IDE\
-然后从 [releases](https://github.com/Ran-Mewo/augment-vip/releases) 页面获取并运行二进制文件\
-之后你应该创建一个新账户，然后登录那个新账户 😊
+*   Sign out from the IDE
+    *   从IDE退出登录
+*   Close the IDE
+    *   关闭IDE
+*   Run the binary
+    *   运行二进制文件
+*   Open the IDE
+    *   打开IDE
+*   Create and sign into a **new account** (your old account is banned!)
+    *   创建一个**新账户**并登录（你的旧账户已被封禁！）😊
 
 **Supported IDEs:**
 - All JetBrains IDEs
