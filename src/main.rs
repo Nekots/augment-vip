@@ -24,11 +24,13 @@ fn get_jetbrains_config_dir() -> Option<PathBuf> {
         .find(|path| path.exists())
 }
 
-fn get_vscode_config_dirs() -> Option<Vec<PathBuf>> {
+fn get_vscode_files(id: &str) -> Option<Vec<PathBuf>> {
     let base_dirs = [dirs::config_dir(), dirs::home_dir(), dirs::data_dir()];
     let path_patterns = [
         &["User", "globalStorage"] as &[&str],
         &["data", "User", "globalStorage"],
+        &[id],
+        &["data", id],
     ];
 
     let vscode_dirs: Vec<PathBuf> = base_dirs
@@ -51,7 +53,7 @@ fn get_vscode_config_dirs() -> Option<Vec<PathBuf>> {
     (!vscode_dirs.is_empty()).then_some(vscode_dirs)
 }
 
-fn update_jetbrains_id_file(file_path: &Path) -> Result<()> {
+fn update_id_file(file_path: &Path) -> Result<()> {
     println!("Updating file: {}", file_path.display());
 
     // Show old UUID if it exists
@@ -78,46 +80,50 @@ fn update_jetbrains_id_file(file_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn update_vscode_storage(vscode_global_storage_path: &Path, vscode_keys: &[&str; 3]) -> Result<()> {
-    let storage_json_path = vscode_global_storage_path.join("storage.json");
+fn update_vscode_files(vscode_file_path: &Path, vscode_keys: &[&str; 3]) -> Result<()> {
+    let storage_json_path = vscode_file_path.join("storage.json");
     
-    if !storage_json_path.exists() {
-        return Ok(()); // Continue if storage.json doesn't exist for this variant
-    }
-    
-    println!("Updating VSCode storage: {}", storage_json_path.display());
+    if storage_json_path.exists() {
+        println!("Updating VSCode storage: {}", storage_json_path.display());
 
-    // Read existing storage.json or create empty object
-    let mut data: Map<String, Value> = storage_json_path.exists()
-        .then(|| fs::read_to_string(&storage_json_path).ok())
-        .flatten()
-        .and_then(|content| serde_json::from_str(&content).ok())
-        .unwrap_or_else(Map::new);
+        // Read existing storage.json or create empty object
+        let mut data: Map<String, Value> = storage_json_path.exists()
+            .then(|| fs::read_to_string(&storage_json_path).ok())
+            .flatten()
+            .and_then(|content| serde_json::from_str(&content).ok())
+            .unwrap_or_else(Map::new);
 
-    for key_encoded in vscode_keys {
-        let key = String::from_utf8(general_purpose::STANDARD.decode(key_encoded)?)?;
+        for key_encoded in vscode_keys {
+            let key = String::from_utf8(general_purpose::STANDARD.decode(key_encoded)?)?;
 
-        // Show old value if it exists
-        if let Some(old_value) = data.get(&key) {
-            println!("Old UUID: {}", old_value.as_str().unwrap_or_default());
+            // Show old value if it exists
+            if let Some(old_value) = data.get(&key) {
+                println!("Old UUID: {}", old_value.as_str().unwrap_or_default());
+            }
+
+            // Generate and update new value
+            let new_value = if *key_encoded == "dGVsZW1ldHJ5LmRldkRldmljZUlk" {
+                Uuid::new_v4().to_string() // ... (something something look into something something) ...
+            } else {
+                format!("{:x}", Sha256::digest(Uuid::new_v4().as_bytes())) // Some fields are SHA-256 hashes
+            };
+            println!("New UUID: {}", new_value);
+            data.insert(key, Value::String(new_value));
         }
 
-        // Generate and update new value
-        let new_value = if *key_encoded == "dGVsZW1ldHJ5LmRldkRldmljZUlk" {
-            Uuid::new_v4().to_string() // ... (something something look into something something) ...
-        } else {
-            format!("{:x}", Sha256::digest(Uuid::new_v4().as_bytes())) // Some fields are SHA-256 hashes
-        };
-        println!("New UUID: {}", new_value);
-        data.insert(key, Value::String(new_value));
+        // Write back to file
+        let json_content = serde_json::to_string_pretty(&data)?;
+        fs::write(&storage_json_path, json_content)?;
+
+        println!("Successfully wrote new UUIDs to file");
     }
-
-    // Write back to file
-    let json_content = serde_json::to_string_pretty(&data)?;
-    fs::write(&storage_json_path, json_content)?;
-
-    println!("Successfully wrote new UUIDs to file");
-    Ok(())
+    
+    if vscode_file_path.exists() && vscode_file_path.is_file() { // it's the id file
+        update_id_file(vscode_file_path)?;
+        lock_file(vscode_file_path)?;
+    }
+    
+    Ok(()) // continue
 }
 
 fn run() -> Result<()> {
@@ -131,7 +137,7 @@ fn run() -> Result<()> {
 
         for file_name in &id_files {
             let file_path = jetbrains_dir.join(String::from_utf8(general_purpose::STANDARD.decode(file_name)?)?);
-            update_jetbrains_id_file(&file_path)?;
+            update_id_file(&file_path)?;
             lock_file(&file_path)?;
         }
 
@@ -141,7 +147,7 @@ fn run() -> Result<()> {
     }
 
     // Try to find and update VSCode variants
-    if let Some(vscode_dirs) = get_vscode_config_dirs() {
+    if let Some(vscode_dirs) = get_vscode_files(&String::from_utf8(general_purpose::STANDARD.decode("bWFjaGluZUlk")?)?) {
         programs_found = true;
 
         let vscode_keys = ["dGVsZW1ldHJ5Lm1hY2hpbmVJZA==", "dGVsZW1ldHJ5LmRldkRldmljZUlk", "dGVsZW1ldHJ5Lm1hY01hY2hpbmVJZA=="];
@@ -149,7 +155,7 @@ fn run() -> Result<()> {
         let delete_query = String::from_utf8(general_purpose::STANDARD.decode("REVMRVRFIEZST00gSXRlbVRhYmxlIFdIRVJFIGtleSBMSUtFICclYXVnbWVudCUnOw==")?)?;
 
         for vscode_dir in vscode_dirs {
-            update_vscode_storage(&vscode_dir, &vscode_keys)?;
+            update_vscode_files(&vscode_dir, &vscode_keys)?;
             clean_database(&vscode_dir, &count_query, &delete_query)?;
         }
 
@@ -205,7 +211,9 @@ fn clean_database(vscode_global_storage_path: &Path, count_query: &String, delet
     let state_db_path = vscode_global_storage_path.join("state.vscdb");
 
     if !state_db_path.exists() {
-        println!("State database not found: {}", state_db_path.display());
+        if state_db_path.parent().map_or(false, |p| p.is_dir()) {
+            println!("State database not found: {}", state_db_path.display());
+        }
         return Ok(());
     }
 
