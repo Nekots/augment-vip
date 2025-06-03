@@ -10,5 +10,7 @@
     *   创建一个**新账户**并登录（你的旧账户已被封禁！）😊
 
 **Supported IDEs:**
-- All JetBrains IDEs
-- All VSCode-based IDEs
+*   All JetBrains IDEs
+    *   所有 JetBrains IDE
+*   All VSCode-based IDEs
+    *   所有基于 VSCode 的 IDE
