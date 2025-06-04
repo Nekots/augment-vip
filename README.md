@@ -15,15 +15,3 @@
     *   所有 JetBrains IDE
 *   All VSCode-based IDEs
     *   所有基于 VSCode 的 IDE
-
-## Star History
-
-<a href="https://www.star-history.com/#Ran-Mewo/augment-vip&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Ran-Mewo/augment-vip&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Ran-Mewo/augment-vip&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Ran-Mewo/augment-vip&type=Date" />
- </picture>
-</a>
-
-Stars are appreciated~
