@@ -1,4 +1,5 @@
 use base64::{Engine as _, engine::general_purpose};
+use clap::Parser;
 use rusqlite::Connection;
 use serde_json::{Map, Value};
 use std::fs::{self};
@@ -11,17 +12,33 @@ use default_args::default_args;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+#[derive(Parser)]
+#[command(name = "augment-vip")]
+#[command(about = "A tool for managing JetBrains and VSCode telemetry IDs")]
+struct Args {
+    /// Skip the pause at the end of execution
+    #[arg(long)]
+    no_pause: bool,
+
+    /// Skip signing out of accounts
+    #[arg(long)]
+    no_signout: bool,
+}
+
 fn main() {
-    if let Err(e) = run() {
+    let args = Args::parse();
+
+    if let Err(e) = run(&args) {
         eprintln!("Error: {}", e);
-        pause();
+        pause(&args);
         std::process::exit(1);
     }
 
-    pause();
+    pause(&args);
 }
 
-fn pause() {
+fn pause(args: &Args) {
+    if args.no_pause { return; }
     print!("\nPress Enter to exit...");
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut String::new()).unwrap();
@@ -189,7 +206,7 @@ default_args! {
     }
 }
 
-fn run() -> Result<()> {
+fn run(args: &Args) -> Result<()> {
     let mut programs_found = false;
 
     // Try to find and update JetBrains
@@ -219,7 +236,7 @@ fn run() -> Result<()> {
 
         for vscode_dir in vscode_dirs {
             update_vscode_files(&vscode_dir, &vscode_keys)?;
-            clean_vscode_database!(&vscode_dir, &count_query, &delete_query)?;
+            if !args.no_signout { clean_vscode_database!(&vscode_dir, &count_query, &delete_query)?; }
         }
 
         println!("All found VSCode variants' ID files have been updated and databases cleaned successfully!");

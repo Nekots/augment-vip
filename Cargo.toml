@@ -11,6 +11,7 @@ serde_json = "1.0"
 sha2 = "0.10"
 rusqlite = { version = "0.36", features = ["bundled"] }
 default-args = "1.0.0"
+clap = { version = "4.5.39", features = ["derive"] }
 
 [profile.release]
 strip = true
