@@ -2,6 +2,7 @@ use base64::{Engine as _, engine::general_purpose};
 use rusqlite::Connection;
 use serde_json::{Map, Value};
 use std::fs::{self};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use uuid::Uuid;
@@ -13,8 +14,17 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn main() {
     if let Err(e) = run() {
         eprintln!("Error: {}", e);
+        pause();
         std::process::exit(1);
     }
+
+    pause();
+}
+
+fn pause() {
+    print!("\nPress Enter to exit...");
+    io::stdout().flush().unwrap();
+    io::stdin().read_line(&mut String::new()).unwrap();
 }
 
 fn get_jetbrains_config_dir() -> Option<PathBuf> {
