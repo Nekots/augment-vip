@@ -3,8 +3,8 @@
     *   从IDE退出登录
 *   Close the IDE
     *   关闭IDE
-*   Run the binary
-    *   运行二进制文件
+*   Run the [binary](https://github.com/Ran-Mewo/augment-vip/releases)
+    *   运行[二进制文件](https://github.com/Ran-Mewo/augment-vip/releases)
 *   Open the IDE
     *   打开IDE
 *   Create and sign into a **new account** (your old accounts won't work anymore!)
