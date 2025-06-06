@@ -12,6 +12,34 @@ use default_args::default_args;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+#[cfg(target_os = "macos")]
+fn ensure_sudo_permissions() -> Result<()> {
+    // Check if we already have sudo privileges
+    let check_sudo = Command::new("sudo")
+        .args(["-n", "true"])
+        .output();
+
+    match check_sudo {
+        Ok(output) if output.status.success() => {
+            println!("Sudo permissions already available");
+            return Ok(());
+        }
+        _ => {
+            println!("Requesting sudo permissions for file locking operations...");
+            let request_sudo = Command::new("sudo")
+                .args(["-v"])
+                .status()?;
+
+            if !request_sudo.success() {
+                return Err("Failed to obtain sudo permissions. File locking may not work properly.".into());
+            }
+
+            println!("Sudo permissions granted");
+            Ok(())
+        }
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "augment-vip")]
 #[command(about = "A tool for managing JetBrains and VSCode telemetry IDs")]
@@ -27,6 +55,11 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+    
+    #[cfg(target_os = "macos")]
+    if let Err(e) = ensure_sudo_permissions() { // Request sudo permissions early on macOS
+        eprintln!("Warning: {}\n\nFile locking may not work properly!", e);
+    }
 
     if let Err(e) = run(&args) {
         eprintln!("Error: {}", e);
@@ -270,10 +303,10 @@ fn lock_file(file_path: &Path) -> Result<()> {
             .args(["444", &file_path.to_string_lossy()])
             .output()
             .ok();
-        
+
         #[cfg(target_os = "macos")]
-        Command::new("chflags")
-            .args(["uchg", &file_path.to_string_lossy()])
+        Command::new("sudo")
+            .args(["chflags", "uchg", &file_path.to_string_lossy()])
             .output()
             .ok();
     }
