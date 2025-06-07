@@ -127,7 +127,6 @@ fn update_id_file(file_path: &Path) -> Result<()> {
 
     // Delete the file if it exists
     if file_path.exists() {
-        println!("Deleting old file: {}", file_path.display());
         let _ = fs::remove_file(file_path);
         
         #[cfg(target_os = "macos")]
@@ -139,7 +138,6 @@ fn update_id_file(file_path: &Path) -> Result<()> {
     }
 
     // Write new UUID to file
-    println!("Writing new UUID to file: {}", file_path.display());
     fs::write(file_path, new_uuid)?;
 
     println!("Successfully wrote new UUID to file");
