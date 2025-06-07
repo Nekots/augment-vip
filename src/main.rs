@@ -281,9 +281,12 @@ fn lock_file(file_path: &Path) -> Result<()> {
     }
 
     // Always ensure file is read-only using Rust API regardless of platform command result
-    let mut perms = fs::metadata(file_path)?.permissions();
-    perms.set_readonly(true);
-    fs::set_permissions(file_path, perms)?;
+    #[cfg(not(macos))]
+    {
+        let mut perms = fs::metadata(file_path)?.permissions();
+        perms.set_readonly(true);
+        fs::set_permissions(file_path, perms)?;
+    }
 
     println!("Successfully locked file");
     Ok(())
