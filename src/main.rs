@@ -131,9 +131,7 @@ fn update_id_file(file_path: &Path) -> Result<()> {
         let _ = fs::remove_file(file_path);
         
         #[cfg(target_os = "macos")]
-        let _ = Command::new("yes")
-            .arg("|")
-            .arg("sudo")
+        let _ = Command::new("sudo")
             .arg("rm")
             .arg("-rf")
             .arg(&file_path.to_string_lossy().to_string())
