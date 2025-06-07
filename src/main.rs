@@ -136,7 +136,7 @@ fn update_id_file(file_path: &Path) -> Result<()> {
             .arg("sudo")
             .arg("rm")
             .arg("-rf")
-            .arg(&file_path.to_string_lossy())
+            .arg(&file_path.to_string_lossy().to_string())
             .status();
     }
 
