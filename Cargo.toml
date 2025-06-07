@@ -13,6 +13,9 @@ rusqlite = { version = "0.36", features = ["bundled"] }
 default-args = "1.0.0"
 clap = { version = "4.5.39", features = ["derive"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+sudo2 = "0.2"
+
 [profile.release]
 strip = true
 opt-level = "z"
