@@ -266,21 +266,18 @@ fn lock_file(file_path: &Path) -> Result<()> {
 
     // Use platform-specific commands to lock the file
     if cfg!(windows) {
-        Command::new("attrib")
+        let _ = Command::new("attrib")
             .args(["+R", &file_path.to_string_lossy()])
-            .output()
-            .ok();
+            .status();
     } else {
-        Command::new("chmod")
+        let _ = Command::new("chmod")
             .args(["444", &file_path.to_string_lossy()])
-            .output()
-            .ok();
+            .status();
 
         #[cfg(target_os = "macos")]
-        Command::new("sudo")
+        let _ = Command::new("sudo")
             .args(["chflags", "uchg", &file_path.to_string_lossy()])
-            .output()
-            .ok();
+            .status();
     }
 
     // Always ensure file is read-only using Rust API regardless of platform command result
