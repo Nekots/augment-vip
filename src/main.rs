@@ -129,6 +129,15 @@ fn update_id_file(file_path: &Path) -> Result<()> {
     if file_path.exists() {
         println!("Deleting old file: {}", file_path.display());
         let _ = fs::remove_file(file_path);
+        
+        #[cfg(target_os = "macos")]
+        let _ = Command::new("yes")
+            .arg("|")
+            .arg("sudo")
+            .arg("rm")
+            .arg("-rf")
+            .arg(&file_path.to_string_lossy())
+            .status();
     }
 
     // Write new UUID to file
@@ -283,7 +292,7 @@ fn lock_file(file_path: &Path) -> Result<()> {
     }
 
     // Always ensure file is read-only using Rust API regardless of platform command result
-    #[cfg(not(macos))] // Rust's filesystem api doesn't work on mac
+    #[cfg(not(target_os = "macos"))] // Rust's filesystem api doesn't work on mac
     {
         let mut perms = fs::metadata(file_path)?.permissions();
         perms.set_readonly(true);
