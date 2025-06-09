@@ -9,6 +9,8 @@ use std::process::Command;
 use uuid::Uuid;
 use sha2::{Sha256, Digest};
 use default_args::default_args;
+use kill_tree::blocking::kill_tree;
+use sysinfo::System;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -16,13 +18,17 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[command(name = "augment-vip")]
 #[command(about = "A tool for managing JetBrains and VSCode telemetry IDs")]
 struct Args {
-    /// Skip the pause at the end of execution
+    /// Skip all pauses for user interaction
     #[arg(long)]
     no_pause: bool,
 
     /// Skip signing out of accounts
     #[arg(long)]
     no_signout: bool,
+    
+    /// Skip IDE termination
+    #[arg(long)]
+    no_terminate: bool,
 }
 
 fn main() {
@@ -47,6 +53,18 @@ fn pause(args: &Args) {
     print!("\nPress Enter to exit...");
     io::stdout().flush().unwrap();
     io::stdin().read_line(&mut String::new()).unwrap();
+}
+
+fn terminate_ides() {
+    for (pid, process) in System::new_all().processes() {
+        let cmd_str = process.cmd().join(" ".as_ref()).to_string_lossy().to_string();
+        if !cmd_str.contains("vscode") && !cmd_str.contains(".augmentcode") { continue; }
+        if let Some(parent_pid) = process.parent() {
+            let _ = kill_tree(parent_pid.as_u32());
+        }
+        let _ = kill_tree(pid.as_u32());
+    }
+    // TODO: Restart IDEs
 }
 
 fn get_jetbrains_config_dir() -> Option<PathBuf> {
@@ -219,6 +237,7 @@ default_args! {
 }
 
 fn run(args: &Args) -> Result<()> {
+    if !args.no_terminate { terminate_ides(); }
     let mut programs_found = false;
 
     // Try to find and update JetBrains

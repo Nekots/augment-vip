@@ -1,6 +1,6 @@
 [package]
 name = "augment-vip"
-version = "0.2.8"
+version = "0.3.0"
 edition = "2021"
 
 [dependencies]
@@ -12,6 +12,8 @@ sha2 = "0.10"
 rusqlite = { version = "0.36", features = ["bundled"] }
 default-args = "1.0.0"
 clap = { version = "4.5.39", features = ["derive"] }
+sysinfo = "0.35"
+kill_tree = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 sudo2 = "0.2"
