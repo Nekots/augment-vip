@@ -162,7 +162,7 @@ fn update_id_file(file_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn update_vscode_files(vscode_file_path: &Path, vscode_keys: &[&str; 3]) -> Result<()> {
+fn update_vscode_files(vscode_file_path: &Path, vscode_keys: &[&str; 4]) -> Result<()> {
     let storage_json_path = vscode_file_path.join("storage.json");
     
     if storage_json_path.exists() {
@@ -261,7 +261,7 @@ fn run(args: &Args) -> Result<()> {
     if let Some(vscode_dirs) = get_vscode_files(&String::from_utf8(general_purpose::STANDARD.decode("bWFjaGluZUlk")?)?) {
         programs_found = true;
 
-        let vscode_keys = ["dGVsZW1ldHJ5Lm1hY2hpbmVJZA==", "dGVsZW1ldHJ5LmRldkRldmljZUlk", "dGVsZW1ldHJ5Lm1hY01hY2hpbmVJZA=="];
+        let vscode_keys = ["dGVsZW1ldHJ5Lm1hY2hpbmVJZA==", "dGVsZW1ldHJ5LmRldkRldmljZUlk", "dGVsZW1ldHJ5Lm1hY01hY2hpbmVJZA==", "c3RvcmFnZS5zZXJ2aWNlTWFjaGluZUlk"];
         let count_query = String::from_utf8(general_purpose::STANDARD.decode("U0VMRUNUIENPVU5UKCopIEZST00gSXRlbVRhYmxlIFdIRVJFIGtleSBMSUtFICclYXVnbWVudCUnOw==")?)?;
         let delete_query = String::from_utf8(general_purpose::STANDARD.decode("REVMRVRFIEZST00gSXRlbVRhYmxlIFdIRVJFIGtleSBMSUtFICclYXVnbWVudCUnOw==")?)?;
 
