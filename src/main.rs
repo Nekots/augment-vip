@@ -266,6 +266,17 @@ fn run(args: &Args) -> Result<()> {
         let delete_query = String::from_utf8(general_purpose::STANDARD.decode("REVMRVRFIEZST00gSXRlbVRhYmxlIFdIRVJFIGtleSBMSUtFICclYXVnbWVudCUnOw==")?)?;
 
         for vscode_dir in vscode_dirs {
+            if vscode_dir.ends_with("workspaceStorage") && vscode_dir.exists() {
+                // Just delete the workspace storage directory
+                let _ = fs::remove_dir_all(&vscode_dir);
+                #[cfg(target_os = "macos")]
+                let _ = Command::new("sudo")
+                    .arg("rm")
+                    .arg("-rf")
+                    .arg(&vscode_dir.to_string_lossy().to_string())
+                    .status();
+                continue;
+            }
             update_vscode_files(&vscode_dir, &vscode_keys)?;
             if !args.no_signout { clean_vscode_database!(&vscode_dir, &count_query, &delete_query)?; }
         }
