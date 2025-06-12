@@ -1,3 +1,5 @@
+mod machineid_spoofer;
+
 use base64::{Engine as _, engine::general_purpose};
 use clap::Parser;
 use rusqlite::Connection;
@@ -11,6 +13,7 @@ use sha2::{Sha256, Digest};
 use default_args::default_args;
 use kill_tree::blocking::kill_tree;
 use sysinfo::System;
+use crate::machineid_spoofer::spoof;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -34,10 +37,9 @@ struct Args {
 fn main() {
     let args = Args::parse();
     
-    #[cfg(target_os = "macos")]
-    if let Err(e) = sudo2::escalate_if_needed() { // Request sudo permissions early on macOS
-        eprintln!("Warning: {}\n\nFile locking may not work properly!", e);
-    }
+    // Need admin to apply many of the fixes
+    #[cfg(target_family = "unix")]
+    if let Err(e) = sudo2::escalate_if_needed() { eprintln!("Warning: {}\nSudo permissions not granted, the application may not work properly!", e); }
 
     if let Err(e) = run(&args) {
         eprintln!("Error: {}", e);
@@ -266,17 +268,17 @@ fn run(args: &Args) -> Result<()> {
         let delete_query = String::from_utf8(general_purpose::STANDARD.decode("REVMRVRFIEZST00gSXRlbVRhYmxlIFdIRVJFIGtleSBMSUtFICclYXVnbWVudCUnOw==")?)?;
 
         for vscode_dir in vscode_dirs {
-            if vscode_dir.ends_with("workspaceStorage") && vscode_dir.exists() {
-                // Just delete the workspace storage directory
-                let _ = fs::remove_dir_all(&vscode_dir);
-                #[cfg(target_os = "macos")]
-                let _ = Command::new("sudo")
-                    .arg("rm")
-                    .arg("-rf")
-                    .arg(&vscode_dir.to_string_lossy().to_string())
-                    .status();
-                continue;
-            }
+            // if vscode_dir.ends_with("workspaceStorage") && vscode_dir.exists() {
+            //     // Just delete the workspace storage directory
+            //     let _ = fs::remove_dir_all(&vscode_dir);
+            //     #[cfg(target_os = "macos")]
+            //     let _ = Command::new("sudo")
+            //         .arg("rm")
+            //         .arg("-rf")
+            //         .arg(&vscode_dir.to_string_lossy().to_string())
+            //         .status();
+            //     continue;
+            // }
             update_vscode_files(&vscode_dir, &vscode_keys)?;
             if !args.no_signout { clean_vscode_database!(&vscode_dir, &count_query, &delete_query)?; }
         }
@@ -291,7 +293,7 @@ fn run(args: &Args) -> Result<()> {
         return Err("No JetBrains or VSCode installations found".into());
     }
     
-    Ok(())
+    spoof() // Spoof machine IDs
 }
 
 fn lock_file(file_path: &Path) -> Result<()> {
