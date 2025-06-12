@@ -282,31 +282,31 @@ fn run(args: &Args) -> Result<()> {
         return Err("No JetBrains or VSCode installations found".into());
     }
     
-    change_git_email()?; // Change git email
+    // change_git_email()?; // Change git email
     spoof() // Spoof machine IDs
 }
 
-fn change_git_email() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    if Command::new("git").arg("--version").output().is_err() { return Ok(()); }
-    let output = Command::new("git")
-        .args(["config", "--global", "user.email"])
-        .output()
-        .unwrap();
-    let current_email = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if current_email.is_empty() { return Ok(()); }
-    let new_email = if current_email.contains('+') {
-        let parts: Vec<&str> = current_email.split('@').collect();
-        let plus_parts: Vec<&str> = parts[0].split('+').collect();
-        format!("{}+{}+{}@{}", plus_parts[0], Uuid::new_v4(), plus_parts[1..].join("+"), parts[1])
-    } else {
-        format!("{}+{}@{}", current_email.split('@').next().unwrap(), Uuid::new_v4(), current_email.split('@').nth(1).unwrap())
-    };
-    Command::new("git")
-        .args(["config", "--global", "user.email", &new_email])
-        .status()
-        .unwrap();
-    Ok(())
-}
+// fn change_git_email() -> std::result::Result<(), Box<dyn std::error::Error>> {
+//     if Command::new("git").arg("--version").output().is_err() { return Ok(()); }
+//     let output = Command::new("git")
+//         .args(["config", "--global", "user.email"])
+//         .output()
+//         .unwrap();
+//     let current_email = String::from_utf8_lossy(&output.stdout).trim().to_string();
+//     if current_email.is_empty() { return Ok(()); }
+//     let new_email = if current_email.contains('+') {
+//         let parts: Vec<&str> = current_email.split('@').collect();
+//         let plus_parts: Vec<&str> = parts[0].split('+').collect();
+//         format!("{}+{}+{}@{}", plus_parts[0], Uuid::new_v4(), plus_parts[1..].join("+"), parts[1])
+//     } else {
+//         format!("{}+{}@{}", current_email.split('@').next().unwrap(), Uuid::new_v4(), current_email.split('@').nth(1).unwrap())
+//     };
+//     Command::new("git")
+//         .args(["config", "--global", "user.email", &new_email])
+//         .status()
+//         .unwrap();
+//     Ok(())
+// }
 
 fn lock_file(file_path: &Path) -> Result<()> {
     println!("Locking file: {}", file_path.display());
