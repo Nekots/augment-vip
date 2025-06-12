@@ -294,7 +294,13 @@ fn change_git_email() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .unwrap();
     let current_email = String::from_utf8_lossy(&output.stdout).trim().to_string();
     if current_email.is_empty() { return Ok(()); }
-    let new_email = format!("{}+{}@{}", current_email.split('@').next().unwrap(), Uuid::new_v4(), current_email.split('@').nth(1).unwrap());
+    let new_email = if current_email.contains('+') {
+        let parts: Vec<&str> = current_email.split('@').collect();
+        let plus_parts: Vec<&str> = parts[0].split('+').collect();
+        format!("{}+{}+{}@{}", plus_parts[0], Uuid::new_v4(), plus_parts[1..].join("+"), parts[1])
+    } else {
+        format!("{}+{}@{}", current_email.split('@').next().unwrap(), Uuid::new_v4(), current_email.split('@').nth(1).unwrap())
+    };
     Command::new("git")
         .args(["config", "--global", "user.email", &new_email])
         .status()
