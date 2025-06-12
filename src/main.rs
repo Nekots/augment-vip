@@ -268,17 +268,6 @@ fn run(args: &Args) -> Result<()> {
         let delete_query = String::from_utf8(general_purpose::STANDARD.decode("REVMRVRFIEZST00gSXRlbVRhYmxlIFdIRVJFIGtleSBMSUtFICclYXVnbWVudCUnOw==")?)?;
 
         for vscode_dir in vscode_dirs {
-            // if vscode_dir.ends_with("workspaceStorage") && vscode_dir.exists() {
-            //     // Just delete the workspace storage directory
-            //     let _ = fs::remove_dir_all(&vscode_dir);
-            //     #[cfg(target_os = "macos")]
-            //     let _ = Command::new("sudo")
-            //         .arg("rm")
-            //         .arg("-rf")
-            //         .arg(&vscode_dir.to_string_lossy().to_string())
-            //         .status();
-            //     continue;
-            // }
             update_vscode_files(&vscode_dir, &vscode_keys)?;
             if !args.no_signout { clean_vscode_database!(&vscode_dir, &count_query, &delete_query)?; }
         }
@@ -293,7 +282,24 @@ fn run(args: &Args) -> Result<()> {
         return Err("No JetBrains or VSCode installations found".into());
     }
     
+    change_git_email()?; // Change git email
     spoof() // Spoof machine IDs
+}
+
+fn change_git_email() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    if Command::new("git").arg("--version").output().is_err() { return Ok(()); }
+    let output = Command::new("git")
+        .args(["config", "--global", "user.email"])
+        .output()
+        .unwrap();
+    let current_email = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if current_email.is_empty() { return Ok(()); }
+    let new_email = format!("{}+{}@{}", current_email.split('@').next().unwrap(), Uuid::new_v4(), current_email.split('@').nth(1).unwrap());
+    Command::new("git")
+        .args(["config", "--global", "user.email", &new_email])
+        .status()
+        .unwrap();
+    Ok(())
 }
 
 fn lock_file(file_path: &Path) -> Result<()> {
